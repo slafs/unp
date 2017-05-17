@@ -83,9 +83,10 @@ class UnpackerBase(object):
     args = ()
     cwd = OUTPUT_FOLDER
 
-    def __init__(self, filename, silent=False):
+    def __init__(self, filename, silent=False, force_basename=False):
         self.filename = filename
         self.silent = silent
+        self.force_basename = force_basename
         self.assert_available()
 
     @classmethod
@@ -164,8 +165,9 @@ class UnpackerBase(object):
         # Find how many unpacked files there are.  If there is more than
         # one, then we have to go to the fallback destination.  Same goes
         # if the intended destination already exists.
+        # This behaviour can also be forced with `force_basename` attribute.
         contents = os.listdir(tmp_dir)
-        if len(contents) == 1:
+        if len(contents) == 1 and not self.force_basename:
             the_one_file = contents[0]
             intended_dst = os.path.join(dst, the_one_file)
         else:
@@ -530,8 +532,14 @@ def select_unpacker(ctx, param, value):
               'debugging broken archives usually.  Note that this command '
               'when executed directly might spam your current working '
               'directory!')
+@click.option('--force-basename', is_flag=True, default=False,
+              help='Force unpacking to a directory with name '
+              'derived from archive\'s basename. '
+              'Useful when extracting many similar archives '
+              'with only one top-level element.'
+              )
 @click.version_option()
-def cli(files, silent, output, dump_command, forced_unpacker):
+def cli(files, silent, output, dump_command, forced_unpacker, force_basename):
     """unp is a super simple command line application that can unpack a lot
     of different archives.  No matter if you unpack a zip or tarball, the
     syntax for doing it is the same.  Unp will also automatically ensure
@@ -556,7 +564,9 @@ def cli(files, silent, output, dump_command, forced_unpacker):
             unpacker_cls = forced_unpacker
         else:
             unpacker_cls = get_unpacker_class(filename)
-        unpackers.append(unpacker_cls(filename, silent=silent))
+        unpackers.append(
+            unpacker_cls(filename, silent=silent, force_basename=force_basename)
+        )
 
     for unpacker in unpackers:
         if dump_command:
